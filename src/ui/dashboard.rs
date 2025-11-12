@@ -7,12 +7,14 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Layout},
-    widgets::{Block, Borders, List, ListItem},
+    style::{Color, Style},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Terminal,
 };
 use std::io;
 use crate::app::App;
 use crate::state::SessionState;
+use crate::zellij::client as zellij;
 
 pub struct Dashboard {
     app: App,
@@ -35,9 +37,34 @@ impl Dashboard {
             self.app.refresh()?;
 
             terminal.draw(|f| {
-                let chunks = Layout::default()
-                    .constraints([Constraint::Min(0)])
-                    .split(f.area());
+                // Check if running in Zellij
+                let in_zellij = zellij::is_in_zellij();
+
+                // Create layout based on whether we need to show warning
+                let chunks = if !in_zellij {
+                    Layout::default()
+                        .direction(ratatui::layout::Direction::Vertical)
+                        .constraints([
+                            Constraint::Length(3),  // Warning
+                            Constraint::Min(0),     // Session list
+                        ])
+                        .split(f.area())
+                } else {
+                    Layout::default()
+                        .constraints([Constraint::Min(0)])
+                        .split(f.area())
+                };
+
+                let mut list_chunk_idx = 0;
+
+                // Render warning if not in Zellij
+                if !in_zellij {
+                    let warning = Paragraph::new("⚠ Not running in Zellij - session switching disabled")
+                        .style(Style::default().fg(Color::Yellow))
+                        .block(Block::default().borders(Borders::ALL));
+                    f.render_widget(warning, chunks[0]);
+                    list_chunk_idx = 1;
+                }
 
                 let items: Vec<ListItem> = self.app.sessions()
                     .iter()
@@ -66,7 +93,7 @@ impl Dashboard {
                         .title("CC-ORCHESTRA")
                         .borders(Borders::ALL));
 
-                f.render_widget(list, chunks[0]);
+                f.render_widget(list, chunks[list_chunk_idx]);
             })?;
 
             if event::poll(std::time::Duration::from_millis(2000))? {

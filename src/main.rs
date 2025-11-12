@@ -2,6 +2,7 @@ mod state;
 mod data;
 mod ui;
 mod app;
+mod zellij;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};

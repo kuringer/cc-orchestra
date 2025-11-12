@@ -1,4 +1,5 @@
 mod state;
+mod data;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};

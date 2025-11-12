@@ -19,9 +19,11 @@ pub struct ClaudeDb {
 
 impl ClaudeDb {
     pub fn new(path: PathBuf) -> Result<Self> {
-        // TODO: implement
         Ok(Self {
-            conn: Connection::open(path)?
+            conn: Connection::open_with_flags(
+                &path,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            )?
         })
     }
 
@@ -69,10 +71,10 @@ impl ClaudeDb {
         let mut attempts = 0;
 
         loop {
+            attempts += 1;
             match Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY) {
                 Ok(conn) => return f(&conn),
                 Err(_e) if attempts < max_attempts => {
-                    attempts += 1;
                     thread::sleep(Duration::from_millis(100));
                 }
                 Err(e) => return Err(e.into()),

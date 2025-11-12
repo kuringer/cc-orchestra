@@ -1,5 +1,6 @@
 mod state;
 
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use state::tracker::{StateFile, SessionInfo};
 use std::path::PathBuf;
@@ -28,18 +29,20 @@ enum Commands {
     },
 }
 
-fn get_state_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap();
-    PathBuf::from(home).join(".claude/cc-orchestra-state.json")
+fn get_state_path() -> Result<PathBuf> {
+    let home = std::env::var("HOME").context("HOME environment variable not set")?;
+    Ok(PathBuf::from(home).join(".claude/cc-orchestra-state.json"))
 }
 
-fn main() {
-    let cli = Cli::parse();
-
-    match &cli.command {
-        Some(Commands::TrackSession { pid, session_id }) => {
-            let mut state = StateFile::load(get_state_path()).unwrap();
-            let cwd = std::env::current_dir().unwrap().to_string_lossy().to_string();
+fn run_command(command: &Commands) -> Result<()> {
+    match command {
+        Commands::TrackSession { pid, session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
+            let cwd = std::env::current_dir()
+                .context("Failed to get current directory")?
+                .to_string_lossy()
+                .to_string();
             let tty = std::env::var("TTY").unwrap_or_else(|_| "unknown".to_string());
 
             state.add_session(session_id.clone(), SessionInfo {
@@ -51,16 +54,32 @@ fn main() {
                 zellij_tab: None,
                 zellij_pane: None,
             });
-            state.save().unwrap();
-            println!("✓ Tracked session {}", session_id);
+            state.save().context("Failed to save state file")?;
+            println!("✓ Tracked session {session_id}");
+            Ok(())
         }
-        Some(Commands::UntrackSession { session_id }) => {
-            let mut state = StateFile::load(get_state_path()).unwrap();
+        Commands::UntrackSession { session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
             if state.remove_session(session_id).is_some() {
-                state.save().unwrap();
-                println!("✓ Untracked session {}", session_id);
+                state.save().context("Failed to save state file")?;
+                println!("✓ Untracked session {session_id}");
             } else {
-                println!("⚠ Session {} not found", session_id);
+                println!("⚠ Session {session_id} not found");
+            }
+            Ok(())
+        }
+    }
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Some(command) => {
+            if let Err(e) = run_command(command) {
+                eprintln!("Error: {e:?}");
+                std::process::exit(1);
             }
         }
         None => {

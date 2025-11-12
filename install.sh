@@ -7,12 +7,50 @@ echo "🎻 Installing cc-orchestra..."
 echo "Building release binary..."
 cargo build --release
 
-# Install binary
+# Install binary and hook wrappers
 mkdir -p ~/.local/bin
 cp target/release/cc-orchestra ~/.local/bin/
 chmod +x ~/.local/bin/cc-orchestra
 
-echo "✓ Binary installed to ~/.local/bin/cc-orchestra"
+# Create SessionStart hook wrapper
+cat > ~/.local/bin/cc-orchestra-session-start << 'WRAPPER_EOF'
+#!/bin/bash
+# Read hook input JSON from stdin
+input=$(cat)
+
+# Extract session_id from JSON
+session_id=$(echo "$input" | jq -r '.session_id // empty')
+
+if [ -z "$session_id" ]; then
+    echo "Error: No session_id in hook input" >&2
+    exit 1
+fi
+
+# Track the session
+exec cc-orchestra track-session --pid $$ --session-id "$session_id"
+WRAPPER_EOF
+chmod +x ~/.local/bin/cc-orchestra-session-start
+
+# Create SessionEnd hook wrapper
+cat > ~/.local/bin/cc-orchestra-session-end << 'WRAPPER_EOF'
+#!/bin/bash
+# Read hook input JSON from stdin
+input=$(cat)
+
+# Extract session_id from JSON
+session_id=$(echo "$input" | jq -r '.session_id // empty')
+
+if [ -z "$session_id" ]; then
+    echo "Error: No session_id in hook input" >&2
+    exit 1
+fi
+
+# Untrack the session
+exec cc-orchestra untrack-session --session-id "$session_id"
+WRAPPER_EOF
+chmod +x ~/.local/bin/cc-orchestra-session-end
+
+echo "✓ Binary and hook wrappers installed to ~/.local/bin/"
 
 # Check if ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -33,12 +71,18 @@ if [ -f "$SETTINGS_FILE" ]; then
     echo '
   "hooks": {
     "SessionStart": [{
-      "type": "command",
-      "command": "cc-orchestra track-session --pid $$ --session-id $CLAUDE_SESSION_ID"
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-session-start"
+      }]
     }],
     "SessionEnd": [{
-      "type": "command",
-      "command": "cc-orchestra untrack-session --session-id $CLAUDE_SESSION_ID"
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-session-end"
+      }]
     }]
   }
 '
@@ -48,12 +92,18 @@ else
 {
   "hooks": {
     "SessionStart": [{
-      "type": "command",
-      "command": "cc-orchestra track-session --pid $$ --session-id $CLAUDE_SESSION_ID"
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-session-start"
+      }]
     }],
     "SessionEnd": [{
-      "type": "command",
-      "command": "cc-orchestra untrack-session --session-id $CLAUDE_SESSION_ID"
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-session-end"
+      }]
     }]
   }
 }

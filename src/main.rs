@@ -1,6 +1,7 @@
 mod state;
 mod data;
 mod ui;
+mod app;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -85,7 +86,8 @@ fn main() {
             }
         }
         None => {
-            let mut dashboard = ui::dashboard::Dashboard::new();
+            let app = app::App::new().unwrap();
+            let mut dashboard = ui::dashboard::Dashboard::new(app);
             if let Err(e) = dashboard.run() {
                 eprintln!("Error: {e:?}");
                 std::process::exit(1);

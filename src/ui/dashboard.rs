@@ -11,14 +11,16 @@ use ratatui::{
     Terminal,
 };
 use std::io;
+use crate::app::App;
+use crate::state::SessionState;
 
 pub struct Dashboard {
-    selected: usize,
+    app: App,
 }
 
 impl Dashboard {
-    pub fn new() -> Self {
-        Self { selected: 0 }
+    pub fn new(app: App) -> Self {
+        Self { app }
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -29,15 +31,35 @@ impl Dashboard {
         let mut terminal = Terminal::new(backend)?;
 
         loop {
+            // Refresh data
+            self.app.refresh()?;
+
             terminal.draw(|f| {
                 let chunks = Layout::default()
                     .constraints([Constraint::Min(0)])
                     .split(f.area());
 
-                let items = vec![
-                    ListItem::new("Session 1 - Working"),
-                    ListItem::new("Session 2 - Waiting"),
-                ];
+                let items: Vec<ListItem> = self.app.sessions()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, session)| {
+                        let status_icon = match session.state {
+                            SessionState::Working => "🟢",
+                            SessionState::Waiting => "⏸️ ",
+                            SessionState::Idle => "💤",
+                            SessionState::Dead => "❌",
+                        };
+
+                        let text = format!("{} {} {} - {:?}",
+                            if i == self.app.selected() { "►" } else { " " },
+                            status_icon,
+                            session.project_name,
+                            session.state
+                        );
+
+                        ListItem::new(text)
+                    })
+                    .collect();
 
                 let list = List::new(items)
                     .block(Block::default()
@@ -47,10 +69,12 @@ impl Dashboard {
                 f.render_widget(list, chunks[0]);
             })?;
 
-            if event::poll(std::time::Duration::from_millis(100))? {
+            if event::poll(std::time::Duration::from_millis(2000))? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
                         KeyCode::Char('q') => break,
+                        KeyCode::Down | KeyCode::Char('j') => self.app.select_next(),
+                        KeyCode::Up | KeyCode::Char('k') => self.app.select_previous(),
                         _ => {}
                     }
                 }

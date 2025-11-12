@@ -66,10 +66,10 @@ impl Dashboard {
                             SessionState::Dead => "❌ Dead",
                         };
 
-                        // Calculate age from last message
-                        let age = if let Some(ref msg) = session.last_message {
-                            let now = chrono::Utc::now().timestamp() * 1000;
-                            let secs = (now - msg.timestamp) / 1000;
+                        // Calculate age from last activity
+                        let age = if let Some(ref activity) = session.last_activity {
+                            let now = chrono::Utc::now().timestamp_millis();
+                            let secs = (now - activity.timestamp) / 1000;
                             if secs < 60 {
                                 format!("{}s ago", secs)
                             } else if secs < 3600 {

@@ -1,5 +1,6 @@
 pub mod sqlite;
 pub mod process;
+pub mod jsonl;
 
 #[cfg(test)]
 mod tests {

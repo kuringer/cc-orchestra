@@ -33,8 +33,8 @@ struct ContentBlock {
 /// Sanitize CWD path to match Claude's directory naming convention
 fn sanitize_cwd(cwd: &Path) -> String {
     let path_str = cwd.to_string_lossy();
-    // Replace slashes with dashes and remove leading dash
-    path_str.replace('/', "-").trim_start_matches('-').to_string()
+    // Replace slashes with dashes (keep leading dash)
+    path_str.replace('/', "-")
 }
 
 /// Parse ISO 8601 timestamp to Unix milliseconds
@@ -154,10 +154,10 @@ mod tests {
     #[test]
     fn test_sanitize_cwd() {
         let cwd = PathBuf::from("/Users/test/project");
-        assert_eq!(sanitize_cwd(&cwd), "Users-test-project");
+        assert_eq!(sanitize_cwd(&cwd), "-Users-test-project");
 
         let cwd = PathBuf::from("/tmp/test");
-        assert_eq!(sanitize_cwd(&cwd), "tmp-test");
+        assert_eq!(sanitize_cwd(&cwd), "-tmp-test");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 mod state;
 mod data;
+mod ui;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -84,7 +85,11 @@ fn main() {
             }
         }
         None => {
-            println!("Starting dashboard...");
+            let mut dashboard = ui::dashboard::Dashboard::new();
+            if let Err(e) = dashboard.run() {
+                eprintln!("Error: {e:?}");
+                std::process::exit(1);
+            }
         }
     }
 }

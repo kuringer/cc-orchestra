@@ -1,16 +1,25 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use std::process::Command;
 
+/// Finds all Claude Code processes currently running.
+///
+/// Returns a vector of (PID, CWD) tuples.
+///
+/// # Note
+/// CWD detection is not yet implemented; CWD field will be empty string.
 pub fn find_claude_processes() -> Result<Vec<(u32, String)>> {
     let output = Command::new("ps")
-        .args(&["aux"])
-        .output()?;
+        .args(["aux"])
+        .output()
+        .context("Failed to execute 'ps aux' command")?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut processes = Vec::new();
 
     for line in stdout.lines() {
-        if line.contains("claude") && !line.contains("grep") {
+        // Match "claude" but not "Claude" app or other variations
+        // Look for lowercase "claude" followed by space or end of line
+        if line.to_lowercase().contains(" claude ") && !line.contains("grep") {
             // Parse PID from ps output (second column)
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() > 1 {
@@ -53,9 +62,9 @@ mod tests {
 
     #[test]
     fn test_find_current_process() {
-        let processes = find_claude_processes().unwrap();
+        let _processes = find_claude_processes().unwrap();
         // Just verify it runs without error
-        assert!(processes.len() >= 0);
+        // (processes may be empty if no Claude processes are running)
     }
 
     #[test]

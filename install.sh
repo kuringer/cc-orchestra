@@ -26,8 +26,8 @@ if [ -z "$session_id" ]; then
     exit 1
 fi
 
-# Track the session
-exec cc-orchestra track-session --pid $$ --session-id "$session_id"
+# Track the session (use PPID to get Claude process, not shell)
+exec cc-orchestra track-session --pid $PPID --session-id "$session_id"
 WRAPPER_EOF
 chmod +x ~/.local/bin/cc-orchestra-session-start
 

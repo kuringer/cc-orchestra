@@ -48,6 +48,14 @@ impl App {
                 9999
             };
 
+            // Calculate file modification age
+            let file_mod_age = if let Some(ref activity) = last_activity {
+                let now = chrono::Utc::now().timestamp();
+                (now - activity.file_modified_at) as i64
+            } else {
+                9999
+            };
+
             // Determine message type for state detection
             let message_type = last_activity.as_ref().and_then(|activity| {
                 // For "assistant" events with tool_use, treat as "user" (tool is running)
@@ -67,6 +75,7 @@ impl App {
                 info,
                 message_type,
                 last_activity_age,
+                file_mod_age,
             );
 
             // Extract project name from cwd

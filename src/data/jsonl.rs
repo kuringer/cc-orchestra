@@ -9,6 +9,7 @@ pub struct SessionActivity {
     pub last_event_type: String,         // "user" or "assistant"
     pub last_content_type: Option<String>, // "tool_use", "text", "thinking"
     pub timestamp: i64,                   // Unix timestamp in milliseconds
+    pub file_modified_at: i64,            // JSONL file modification time (Unix seconds)
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,6 +105,12 @@ fn get_session_activity_with_home(session_id: &str, cwd: &Path, home_dir: Option
         return Ok(None);
     }
 
+    // Get file modification time
+    let metadata = std::fs::metadata(&jsonl_path)?;
+    let file_modified_at = metadata.modified()?
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+
     // Read last 50 lines for performance
     let lines = read_last_n_lines(&jsonl_path, 50)?;
 
@@ -117,6 +124,7 @@ fn get_session_activity_with_home(session_id: &str, cwd: &Path, home_dir: Option
                 last_event_type: event.event_type,
                 last_content_type,
                 timestamp,
+                file_modified_at,
             }));
         }
         // Skip invalid lines and continue

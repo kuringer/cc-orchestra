@@ -1,4 +1,5 @@
 pub mod sqlite;
+pub mod process;
 
 #[cfg(test)]
 mod tests {

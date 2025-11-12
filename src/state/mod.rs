@@ -1,4 +1,13 @@
 pub mod tracker;
+pub mod detector;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SessionState {
+    Working,   // 🟢 Actively generating/running
+    Waiting,   // ⏸️ Waiting for user input
+    Idle,      // 💤 No activity 30+ min
+    Dead,      // ❌ Process not found
+}
 
 #[cfg(test)]
 mod tests {

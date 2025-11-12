@@ -31,6 +31,11 @@ impl App {
     }
 
     pub fn refresh(&mut self) -> Result<()> {
+        // Reload state file from disk to pick up new sessions
+        let home = std::env::var("HOME")?;
+        let state_path = PathBuf::from(&home).join(".claude/cc-orchestra-state.json");
+        self.state_file = StateFile::load(state_path)?;
+
         let mut sessions = Vec::new();
 
         for (session_id, info) in &self.state_file.sessions {

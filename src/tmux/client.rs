@@ -29,9 +29,17 @@ pub fn get_session_and_window() -> Result<(String, u32)> {
 }
 
 pub fn focus_pane(pane_id: &str) -> Result<()> {
+    // First, switch to the window containing this pane
+    // This ensures the window is visible before selecting the pane
+    Command::new("tmux")
+        .args(&["select-window", "-t", pane_id])
+        .output()?;
+
+    // Then select the specific pane
     Command::new("tmux")
         .args(&["select-pane", "-t", pane_id])
         .output()?;
+
     Ok(())
 }
 

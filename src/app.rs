@@ -66,8 +66,14 @@ impl App {
 
             // Determine message type for state detection
             let message_type = last_activity.as_ref().and_then(|activity| {
-                // For "assistant" events with tool_use, treat as "user" (tool is running)
+                // Special case: AskUserQuestion means Claude is waiting for user input
                 if activity.last_event_type == "assistant"
+                    && activity.last_content_type.as_ref().map(|t| t.as_str()) == Some("tool_use")
+                    && activity.tool_name.as_ref().map(|t| t.as_str()) == Some("AskUserQuestion") {
+                    Some("assistant") // Waiting for user response
+                }
+                // For "assistant" events with tool_use, treat as "user" (tool is running)
+                else if activity.last_event_type == "assistant"
                     && activity.last_content_type.as_ref().map(|t| t.as_str()) == Some("tool_use") {
                     Some("user")
                 } else if activity.last_event_type == "assistant"

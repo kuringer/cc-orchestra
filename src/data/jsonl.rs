@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 pub struct SessionActivity {
     pub last_event_type: String,         // "user" or "assistant"
     pub last_content_type: Option<String>, // "tool_use", "text", "thinking"
+    pub tool_name: Option<String>,       // Tool name if content_type is "tool_use"
     pub timestamp: i64,                   // Unix timestamp in milliseconds
     pub file_modified_at: i64,            // JSONL file modification time (Unix seconds)
 }
@@ -44,17 +45,27 @@ fn parse_timestamp(timestamp: &str) -> Result<i64> {
     Ok(dt.timestamp_millis())
 }
 
-/// Get the last content type from a message
-fn extract_last_content_type(content: &serde_json::Value) -> Option<String> {
+/// Get the last content type and tool name from a message
+fn extract_last_content_info(content: &serde_json::Value) -> (Option<String>, Option<String>) {
     // Content can be an array of content blocks
     if let Some(array) = content.as_array() {
         if let Some(last_block) = array.last() {
-            if let Some(content_type) = last_block.get("type") {
-                return content_type.as_str().map(|s| s.to_string());
-            }
+            let content_type = last_block.get("type")
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string());
+
+            let tool_name = if content_type.as_deref() == Some("tool_use") {
+                last_block.get("name")
+                    .and_then(|n| n.as_str())
+                    .map(|s| s.to_string())
+            } else {
+                None
+            };
+
+            return (content_type, tool_name);
         }
     }
-    None
+    (None, None)
 }
 
 /// Read the last N lines from a file efficiently
@@ -117,12 +128,13 @@ fn get_session_activity_with_home(session_id: &str, cwd: &Path, home_dir: Option
     // Parse lines in reverse to find the last valid event
     for line in lines.iter().rev() {
         if let Ok(event) = serde_json::from_str::<JsonlEvent>(line) {
-            let last_content_type = extract_last_content_type(&event.message.content);
+            let (last_content_type, tool_name) = extract_last_content_info(&event.message.content);
             let timestamp = parse_timestamp(&event.timestamp)?;
 
             return Ok(Some(SessionActivity {
                 last_event_type: event.event_type,
                 last_content_type,
+                tool_name,
                 timestamp,
                 file_modified_at,
             }));
@@ -178,20 +190,30 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_last_content_type() {
+    fn test_extract_last_content_info() {
         let json = serde_json::json!([
             {"type": "thinking", "thinking": "test"},
             {"type": "tool_use", "name": "Bash"}
         ]);
 
-        let content_type = extract_last_content_type(&json);
+        let (content_type, tool_name) = extract_last_content_info(&json);
         assert_eq!(content_type, Some("tool_use".to_string()));
+        assert_eq!(tool_name, Some("Bash".to_string()));
 
         let json = serde_json::json!([
             {"type": "text", "text": "hello"}
         ]);
-        let content_type = extract_last_content_type(&json);
+        let (content_type, tool_name) = extract_last_content_info(&json);
         assert_eq!(content_type, Some("text".to_string()));
+        assert_eq!(tool_name, None);
+
+        // Test AskUserQuestion tool
+        let json = serde_json::json!([
+            {"type": "tool_use", "name": "AskUserQuestion"}
+        ]);
+        let (content_type, tool_name) = extract_last_content_info(&json);
+        assert_eq!(content_type, Some("tool_use".to_string()));
+        assert_eq!(tool_name, Some("AskUserQuestion".to_string()));
     }
 
     #[test]

@@ -12,6 +12,10 @@ mkdir -p ~/.local/bin
 cp target/release/cc-orchestra ~/.local/bin/
 chmod +x ~/.local/bin/cc-orchestra
 
+# Install tmux wrapper script
+cp scripts/cc ~/.local/bin/cc
+chmod +x ~/.local/bin/cc
+
 # Create SessionStart hook wrapper
 cat > ~/.local/bin/cc-orchestra-session-start << 'WRAPPER_EOF'
 #!/bin/bash
@@ -26,8 +30,24 @@ if [ -z "$session_id" ]; then
     exit 1
 fi
 
-# Track the session (use PPID to get Claude process, not shell)
-exec cc-orchestra track-session --pid $PPID --session-id "$session_id"
+# Build track-session command with tmux info if available
+cmd="cc-orchestra track-session --pid $PPID --session-id \"$session_id\""
+
+# Capture tmux info if in tmux
+if [ -n "$TMUX_PANE" ]; then
+    cmd="$cmd --tmux-pane \"$TMUX_PANE\""
+
+    # Get session and window from tmux
+    session_window=$(tmux display-message -p '#S:#I' 2>/dev/null)
+    if [ -n "$session_window" ]; then
+        session_name=$(echo "$session_window" | cut -d: -f1)
+        window_index=$(echo "$session_window" | cut -d: -f2)
+        cmd="$cmd --tmux-session \"$session_name\" --tmux-window $window_index"
+    fi
+fi
+
+# Execute the command
+eval exec $cmd
 WRAPPER_EOF
 chmod +x ~/.local/bin/cc-orchestra-session-start
 
@@ -114,9 +134,14 @@ echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "Usage:"
+echo "  cc [args]                 # Launch claude-code in tmux window (recommended)"
 echo "  cc-orchestra              # Launch dashboard"
 echo "  cc-orchestra --help       # Show help"
 echo ""
 echo "Next steps:"
-echo "  1. Start a new Claude Code session"
-echo "  2. Run 'cc-orchestra' to see it tracked"
+echo "  1. Start a new session: cc"
+echo "  2. Run dashboard: cc-orchestra"
+echo "  3. Press Enter to jump to sessions"
+echo ""
+echo "Note: Sessions started with 'cc' will be tracked in tmux"
+echo "      Sessions outside tmux will show ⚠️ indicator"

@@ -81,9 +81,17 @@ impl Dashboard {
                             "unknown".to_string()
                         };
 
+                        // Check if session is in tmux
+                        let tmux_indicator = if session.info.tmux_pane.is_none() {
+                            "⚠️ "
+                        } else {
+                            ""
+                        };
+
                         let text = format!(
-                            "{} {:20} {:15} PID:{:6} {}",
+                            "{} {}{:20} {:15} PID:{:6} {}",
                             if i == self.app.selected() { "►" } else { " " },
+                            tmux_indicator,
                             session.project_name,
                             status_icon,
                             session.info.pid,
@@ -111,6 +119,16 @@ impl Dashboard {
                         KeyCode::Down | KeyCode::Char('j') => self.app.select_next(),
                         KeyCode::Up | KeyCode::Char('k') => self.app.select_previous(),
                         KeyCode::Char('r') => { /* Force refresh - happens at top of loop */ }
+                        KeyCode::Enter => {
+                            // Jump to selected session if it's in tmux
+                            if let Some(session) = self.app.sessions().get(self.app.selected()) {
+                                if let Some(ref pane_id) = session.info.tmux_pane {
+                                    // Switch to the tmux pane and exit dashboard
+                                    let _ = crate::tmux::client::switch_client(pane_id);
+                                    break;
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }

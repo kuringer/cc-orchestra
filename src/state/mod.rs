@@ -39,6 +39,9 @@ mod tests {
             zellij_session: Some("main".to_string()),
             zellij_tab: Some(1),
             zellij_pane: Some(1),
+            tmux_pane: None,
+            tmux_session: None,
+            tmux_window: None,
         });
         state.save().unwrap();
 

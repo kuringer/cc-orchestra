@@ -3,6 +3,7 @@ mod data;
 mod ui;
 mod app;
 mod zellij;
+mod tmux;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -25,6 +26,12 @@ enum Commands {
         pid: u32,
         #[arg(long)]
         session_id: String,
+        #[arg(long)]
+        tmux_pane: Option<String>,
+        #[arg(long)]
+        tmux_session: Option<String>,
+        #[arg(long)]
+        tmux_window: Option<u32>,
     },
     /// Untrack a Claude Code session (called by hooks)
     UntrackSession {
@@ -40,7 +47,7 @@ fn get_state_path() -> Result<PathBuf> {
 
 fn run_command(command: &Commands) -> Result<()> {
     match command {
-        Commands::TrackSession { pid, session_id } => {
+        Commands::TrackSession { pid, session_id, tmux_pane, tmux_session, tmux_window } => {
             let mut state = StateFile::load(get_state_path()?)
                 .context("Failed to load state file")?;
             let cwd = std::env::current_dir()
@@ -57,6 +64,9 @@ fn run_command(command: &Commands) -> Result<()> {
                 zellij_session: None, // TODO: detect Zellij
                 zellij_tab: None,
                 zellij_pane: None,
+                tmux_pane: tmux_pane.clone(),
+                tmux_session: tmux_session.clone(),
+                tmux_window: *tmux_window,
             });
             state.save().context("Failed to save state file")?;
             println!("✓ Tracked session {session_id}");

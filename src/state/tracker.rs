@@ -13,6 +13,9 @@ pub struct SessionInfo {
     pub zellij_session: Option<String>,
     pub zellij_tab: Option<u32>,
     pub zellij_pane: Option<u32>,
+    pub tmux_pane: Option<String>,      // e.g., "%1"
+    pub tmux_session: Option<String>,   // e.g., "main"
+    pub tmux_window: Option<u32>,       // window index
 }
 
 #[derive(Debug, Serialize, Deserialize)]

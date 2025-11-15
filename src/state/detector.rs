@@ -50,6 +50,9 @@ mod tests {
             zellij_session: None,
             zellij_tab: None,
             zellij_pane: None,
+            tmux_pane: None,
+            tmux_session: None,
+            tmux_window: None,
         }
     }
 

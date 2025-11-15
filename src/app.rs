@@ -15,6 +15,7 @@ pub struct App {
     state_file: StateFile,
     sessions: Vec<Session>,
     selected: usize,
+    alerted_sessions: std::collections::HashSet<String>, // Track which sessions have been alerted
 }
 
 impl App {
@@ -27,6 +28,7 @@ impl App {
             state_file,
             sessions: Vec::new(),
             selected: 0,
+            alerted_sessions: std::collections::HashSet::new(),
         })
     }
 
@@ -151,6 +153,23 @@ impl App {
                 true // First time seeing this PID - keep it
             }
         });
+
+        // Play sound alert for new WaitingForInput sessions
+        for session in &sessions {
+            if session.state == SessionState::WaitingForInput {
+                // Only alert if we haven't alerted this session before
+                if !self.alerted_sessions.contains(&session.id) {
+                    // Play distinctive sound (macOS Sosumi)
+                    let _ = std::process::Command::new("afplay")
+                        .arg("/System/Library/Sounds/Sosumi.aiff")
+                        .spawn();
+                    self.alerted_sessions.insert(session.id.clone());
+                }
+            } else {
+                // Remove from alerted set if state changed (so we can alert again if it goes back to WaitingForInput)
+                self.alerted_sessions.remove(&session.id);
+            }
+        }
 
         // Restore selection by session ID, or default to 0
         if let Some(id) = selected_id {

@@ -113,7 +113,7 @@ impl Dashboard {
                 f.render_widget(footer, chunks[2]);
             })?;
 
-            if event::poll(std::time::Duration::from_millis(2000))? {
+            if event::poll(std::time::Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
                         KeyCode::Char('q') => break,

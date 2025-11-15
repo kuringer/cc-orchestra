@@ -110,6 +110,17 @@ impl App {
         // Sort by started_at descending (newest sessions first)
         sessions.sort_by(|a, b| b.info.started_at.cmp(&a.info.started_at));
 
+        // Deduplicate by PID - keep only the most recent session for each PID
+        let mut seen_pids = std::collections::HashSet::new();
+        sessions.retain(|session| {
+            if seen_pids.contains(&session.info.pid) {
+                false // Duplicate PID - remove this session
+            } else {
+                seen_pids.insert(session.info.pid);
+                true // First time seeing this PID - keep it
+            }
+        });
+
         // Restore selection by session ID, or default to 0
         if let Some(id) = selected_id {
             self.selected = sessions.iter().position(|s| s.id == id).unwrap_or(0);

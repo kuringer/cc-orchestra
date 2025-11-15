@@ -31,6 +31,9 @@ impl App {
     }
 
     pub fn refresh(&mut self) -> Result<()> {
+        // Save currently selected session ID to restore after refresh
+        let selected_id = self.sessions.get(self.selected).map(|s| s.id.clone());
+
         // Reload state file from disk to pick up new sessions
         let home = std::env::var("HOME")?;
         let state_path = PathBuf::from(&home).join(".claude/cc-orchestra-state.json");
@@ -97,6 +100,16 @@ impl App {
                 last_activity,
                 project_name,
             });
+        }
+
+        // Sort by started_at descending (newest sessions first)
+        sessions.sort_by(|a, b| b.info.started_at.cmp(&a.info.started_at));
+
+        // Restore selection by session ID, or default to 0
+        if let Some(id) = selected_id {
+            self.selected = sessions.iter().position(|s| s.id == id).unwrap_or(0);
+        } else {
+            self.selected = 0;
         }
 
         self.sessions = sessions;

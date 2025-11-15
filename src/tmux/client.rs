@@ -40,6 +40,25 @@ pub fn focus_pane(pane_id: &str) -> Result<()> {
         .args(&["select-pane", "-t", pane_id])
         .output()?;
 
+    // Focus the Ghostty window containing tmux
+    focus_ghostty_window()?;
+
+    Ok(())
+}
+
+fn focus_ghostty_window() -> Result<()> {
+    // Use AppleScript to activate Ghostty window with tmux
+    let script = r#"
+        tell application "System Events"
+            set ghosttyProc to first process whose name is "Ghostty"
+            set frontmost of ghosttyProc to true
+        end tell
+    "#;
+
+    Command::new("osascript")
+        .args(&["-e", script])
+        .output()?;
+
     Ok(())
 }
 

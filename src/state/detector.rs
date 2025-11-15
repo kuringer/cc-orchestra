@@ -19,6 +19,10 @@ pub fn detect_state(session_info: &SessionInfo, last_msg_type: Option<&str>, las
 
     // 4. Determine state based on last message
     match last_msg_type {
+        Some("needs_input") => {
+            // Claude is BLOCKED waiting for user input (AskUserQuestion, permissions, etc.)
+            SessionState::WaitingForInput
+        }
         Some("user") => {
             // User just sent message or tool result, Claude is processing
             if last_msg_age_secs < 30 {

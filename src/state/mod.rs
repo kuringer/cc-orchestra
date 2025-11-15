@@ -3,10 +3,11 @@ pub mod detector;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionState {
-    Working,   // 🟢 Actively generating/running
-    Waiting,   // ⏸️ Waiting for user input
-    Idle,      // 💤 No activity 30+ min
-    Dead,      // ❌ Process not found
+    Working,          // 🟢 Actively generating/running
+    WaitingForInput,  // ⏸️ NEEDS INPUT - blocked on user response
+    Waiting,          // ⏸️ Waiting for user input (general)
+    Idle,             // 💤 No activity 30+ min
+    Dead,             // ❌ Process not found
 }
 
 #[cfg(test)]

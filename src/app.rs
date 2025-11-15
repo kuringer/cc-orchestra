@@ -66,11 +66,11 @@ impl App {
 
             // Determine message type for state detection
             let message_type = last_activity.as_ref().and_then(|activity| {
-                // Special case: AskUserQuestion means Claude is waiting for user input
+                // Special case: AskUserQuestion means Claude is BLOCKED waiting for user input
                 if activity.last_event_type == "assistant"
                     && activity.last_content_type.as_ref().map(|t| t.as_str()) == Some("tool_use")
                     && activity.tool_name.as_ref().map(|t| t.as_str()) == Some("AskUserQuestion") {
-                    Some("assistant") // Waiting for user response
+                    Some("needs_input") // Special marker for WaitingForInput state
                 }
                 // For "assistant" events with tool_use, treat as "user" (tool is running)
                 else if activity.last_event_type == "assistant"
@@ -113,8 +113,33 @@ impl App {
             });
         }
 
-        // Sort by started_at descending (newest sessions first)
-        sessions.sort_by(|a, b| b.info.started_at.cmp(&a.info.started_at));
+        // Sort by priority first (WaitingForInput at top), then by started_at (newest first)
+        sessions.sort_by(|a, b| {
+            // Priority: WaitingForInput=0, Working=1, Waiting=2, Idle=3
+            let priority_a = match a.state {
+                SessionState::WaitingForInput => 0,
+                SessionState::Working => 1,
+                SessionState::Waiting => 2,
+                SessionState::Idle => 3,
+                SessionState::Dead => 4,
+            };
+            let priority_b = match b.state {
+                SessionState::WaitingForInput => 0,
+                SessionState::Working => 1,
+                SessionState::Waiting => 2,
+                SessionState::Idle => 3,
+                SessionState::Dead => 4,
+            };
+
+            // First compare by priority
+            match priority_a.cmp(&priority_b) {
+                std::cmp::Ordering::Equal => {
+                    // Same priority - sort by started_at (newest first)
+                    b.info.started_at.cmp(&a.info.started_at)
+                }
+                other => other,
+            }
+        });
 
         // Deduplicate by PID - keep only the most recent session for each PID
         let mut seen_pids = std::collections::HashSet::new();

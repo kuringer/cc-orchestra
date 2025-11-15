@@ -86,6 +86,11 @@ impl App {
                 file_mod_age,
             );
 
+            // Skip dead sessions
+            if state == SessionState::Dead {
+                continue;
+            }
+
             // Extract project name from cwd
             let project_name = PathBuf::from(&info.cwd)
                 .file_name()

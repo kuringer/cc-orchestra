@@ -1,8 +1,8 @@
 #!/bin/bash
-# cc - Wrapper script to launch claude-code in tmux
+# cc - Wrapper script to launch Claude Code in tmux
 #
 # Usage:
-#   cc [args]  - Launch claude-code with args in tmux window
+#   cc [args]  - Launch Claude Code with args in tmux window
 #
 # If already in tmux: creates a new window
 # If not in tmux: creates a new session or attaches to existing one
@@ -12,14 +12,14 @@ CWD=$(pwd)
 
 if [ -n "$TMUX" ]; then
     # Already in tmux - create a new window in current directory
-    tmux new-window -c "$CWD" "claude-code $*"
+    tmux new-window -c "$CWD" "claude $*"
 else
     # Not in tmux - check if there's an existing session
     if tmux has-session -t claude 2>/dev/null; then
         # Attach to existing session and create new window
-        tmux attach-session -t claude \; new-window -c "$CWD" "claude-code $*"
+        tmux attach-session -t claude \; new-window -c "$CWD" "claude $*"
     else
         # Create new session named "claude" in current directory
-        tmux new-session -s claude -c "$CWD" "claude-code $*"
+        tmux new-session -s claude -c "$CWD" "claude $*"
     fi
 fi

@@ -1,8 +1,8 @@
 #!/bin/bash
-# cc - Wrapper script to launch Claude Code in tmux
+# ccode - Wrapper script to launch Claude Code in tmux
 #
 # Usage:
-#   cc [args]  - Launch Claude Code with args in tmux window
+#   ccode [args]  - Launch Claude Code with args in tmux window
 #
 # If already in tmux: creates a new window
 # If not in tmux: creates a new session or attaches to existing one

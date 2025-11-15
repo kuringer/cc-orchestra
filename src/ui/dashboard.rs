@@ -120,12 +120,12 @@ impl Dashboard {
                         KeyCode::Up | KeyCode::Char('k') => self.app.select_previous(),
                         KeyCode::Char('r') => { /* Force refresh - happens at top of loop */ }
                         KeyCode::Enter => {
-                            // Jump to selected session if it's in tmux
+                            // Focus selected session's tmux pane (works from outside tmux)
                             if let Some(session) = self.app.sessions().get(self.app.selected()) {
                                 if let Some(ref pane_id) = session.info.tmux_pane {
-                                    // Switch to the tmux pane and exit dashboard
-                                    let _ = crate::tmux::client::switch_client(pane_id);
-                                    break;
+                                    // Focus the tmux pane (affects other window with tmux)
+                                    let _ = crate::tmux::client::focus_pane(pane_id);
+                                    // Don't exit dashboard - let it stay open
                                 }
                             }
                         }

@@ -13,8 +13,8 @@ cp target/release/cc-orchestra ~/.local/bin/
 chmod +x ~/.local/bin/cc-orchestra
 
 # Install tmux wrapper script
-cp scripts/cc ~/.local/bin/cc
-chmod +x ~/.local/bin/cc
+cp scripts/ccode ~/.local/bin/ccode
+chmod +x ~/.local/bin/ccode
 
 # Create SessionStart hook wrapper
 cat > ~/.local/bin/cc-orchestra-session-start << 'WRAPPER_EOF'
@@ -134,14 +134,14 @@ echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "Usage:"
-echo "  cc [args]                 # Launch claude-code in tmux window (recommended)"
+echo "  ccode [args]              # Launch Claude Code in tmux window (recommended)"
 echo "  cc-orchestra              # Launch dashboard"
 echo "  cc-orchestra --help       # Show help"
 echo ""
 echo "Next steps:"
-echo "  1. Start a new session: cc"
+echo "  1. Start a new session: ccode"
 echo "  2. Run dashboard: cc-orchestra"
-echo "  3. Press Enter to jump to sessions"
+echo "  3. Press Enter to switch to sessions"
 echo ""
-echo "Note: Sessions started with 'cc' will be tracked in tmux"
+echo "Note: Sessions started with 'ccode' will be tracked in tmux"
 echo "      Sessions outside tmux will show ⚠️ indicator"

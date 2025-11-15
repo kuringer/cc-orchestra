@@ -52,8 +52,8 @@ fn focus_ghostty_window() -> Result<()> {
         tell application "System Events"
             tell process "Ghostty"
                 repeat with w in windows
-                    if name of w contains "tmux" or name of w contains "claude" then
-                        set index of w to 1
+                    if name of w contains "tmux" then
+                        perform action "AXRaise" of w
                         set frontmost to true
                         return
                     end if

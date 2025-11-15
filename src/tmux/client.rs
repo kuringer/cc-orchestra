@@ -47,11 +47,20 @@ pub fn focus_pane(pane_id: &str) -> Result<()> {
 }
 
 fn focus_ghostty_window() -> Result<()> {
-    // Use AppleScript to activate Ghostty window with tmux
+    // Find Ghostty window with tmux session title and activate it
     let script = r#"
         tell application "System Events"
-            set ghosttyProc to first process whose name is "Ghostty"
-            set frontmost of ghosttyProc to true
+            tell process "Ghostty"
+                repeat with w in windows
+                    if name of w contains "tmux" or name of w contains "claude" then
+                        set index of w to 1
+                        set frontmost to true
+                        return
+                    end if
+                end repeat
+                -- Fallback: just activate Ghostty
+                set frontmost to true
+            end tell
         end tell
     "#;
 

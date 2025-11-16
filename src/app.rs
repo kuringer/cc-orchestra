@@ -1,5 +1,4 @@
 use anyhow::Result;
-use crate::data::jsonl::SessionActivity;
 use crate::state::{SessionState, tracker::{StateFile, SessionInfo}, detector};
 use std::path::PathBuf;
 
@@ -7,92 +6,55 @@ pub struct Session {
     pub id: String,
     pub info: SessionInfo,
     pub state: SessionState,
-    pub last_activity: Option<SessionActivity>,
     pub project_name: String,
 }
 
 pub struct App {
     state_file: StateFile,
+    state_file_path: PathBuf,
     sessions: Vec<Session>,
     selected: usize,
     alerted_sessions: std::collections::HashSet<String>, // Track which sessions have been alerted
+    refresh_count: u32, // Counter for periodic logging
 }
 
 impl App {
     pub fn new() -> Result<Self> {
         let home = std::env::var("HOME")?;
         let state_path = PathBuf::from(&home).join(".claude/cc-orchestra-state.json");
-        let state_file = StateFile::load(state_path)?;
+        let state_file = StateFile::load(state_path.clone())?;
 
         Ok(Self {
             state_file,
+            state_file_path: state_path,
             sessions: Vec::new(),
             selected: 0,
             alerted_sessions: std::collections::HashSet::new(),
+            refresh_count: 0,
         })
     }
 
     pub fn refresh(&mut self) -> Result<()> {
+        let start_time = std::time::Instant::now();
+        self.refresh_count += 1;
+        let should_log = self.refresh_count % 100 == 0; // Log every ~1 second
+
         // Save currently selected session ID to restore after refresh
         let selected_id = self.sessions.get(self.selected).map(|s| s.id.clone());
 
-        // Reload state file from disk to pick up new sessions
-        let home = std::env::var("HOME")?;
-        let state_path = PathBuf::from(&home).join(".claude/cc-orchestra-state.json");
-        self.state_file = StateFile::load(state_path)?;
+        // Reload state file only every 100 refreshes (~1 second) to reduce I/O
+        if self.refresh_count % 100 == 0 {
+            self.state_file = StateFile::load(self.state_file_path.clone())?;
+            if should_log {
+                eprintln!("[TIMING] State file load: {:?}", start_time.elapsed());
+            }
+        }
 
         let mut sessions = Vec::new();
 
         for (session_id, info) in &self.state_file.sessions {
-            // Get session activity from JSONL
-            let cwd_path = PathBuf::from(&info.cwd);
-            let last_activity = crate::data::jsonl::get_session_activity(session_id, &cwd_path)
-                .ok()
-                .flatten();
-
-            // Calculate activity age
-            let last_activity_age = if let Some(ref activity) = last_activity {
-                let now = chrono::Utc::now().timestamp_millis();
-                ((now - activity.timestamp) / 1000) as i64
-            } else {
-                9999
-            };
-
-            // Calculate file modification age
-            let file_mod_age = if let Some(ref activity) = last_activity {
-                let now = chrono::Utc::now().timestamp();
-                (now - activity.file_modified_at) as i64
-            } else {
-                9999
-            };
-
-            // Determine message type for state detection
-            let message_type = last_activity.as_ref().and_then(|activity| {
-                // Special case: AskUserQuestion means Claude is BLOCKED waiting for user input
-                if activity.last_event_type == "assistant"
-                    && activity.last_content_type.as_ref().map(|t| t.as_str()) == Some("tool_use")
-                    && activity.tool_name.as_ref().map(|t| t.as_str()) == Some("AskUserQuestion") {
-                    Some("needs_input") // Special marker for WaitingForInput state
-                }
-                // For "assistant" events with tool_use, treat as "user" (tool is running)
-                else if activity.last_event_type == "assistant"
-                    && activity.last_content_type.as_ref().map(|t| t.as_str()) == Some("tool_use") {
-                    Some("user")
-                } else if activity.last_event_type == "assistant"
-                    && activity.last_content_type.as_ref().map(|t| t.as_str()) == Some("text") {
-                    Some("assistant")
-                } else {
-                    Some(activity.last_event_type.as_str())
-                }
-            });
-
-            // Detect state
-            let state = detector::detect_state(
-                info,
-                message_type,
-                last_activity_age,
-                file_mod_age,
-            );
+            // Detect state using hooks-only logic (no JSONL reading)
+            let state = detector::detect_state(info);
 
             // Skip dead sessions
             if state == SessionState::Dead {
@@ -110,7 +72,6 @@ impl App {
                 id: session_id.clone(),
                 info: info.clone(),
                 state,
-                last_activity,
                 project_name,
             });
         }
@@ -176,6 +137,29 @@ impl App {
             self.selected = sessions.iter().position(|s| s.id == id).unwrap_or(0);
         } else {
             self.selected = 0;
+        }
+
+        // Detect state changes for debugging - log to file
+        let log_path = std::path::Path::new("/tmp/cc-orchestra-debug.log");
+        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            use std::io::Write;
+            for session in &sessions {
+                if let Some(old_session) = self.sessions.iter().find(|s| s.id == session.id) {
+                    if old_session.state != session.state {
+                        let _ = writeln!(log_file, "[STATE CHANGE] {} {:?} -> {:?} (detected after {:?})",
+                            session.project_name,
+                            old_session.state,
+                            session.state,
+                            start_time.elapsed()
+                        );
+                    }
+                }
+            }
+
+            if should_log {
+                let _ = writeln!(log_file, "[TIMING] Total refresh: {:?}", start_time.elapsed());
+                let _ = writeln!(log_file, "---");
+            }
         }
 
         self.sessions = sessions;

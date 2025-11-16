@@ -38,6 +38,16 @@ enum Commands {
         #[arg(long)]
         session_id: String,
     },
+    /// Mark session as waiting for input (called by PostToolUse hook)
+    MarkWaiting {
+        #[arg(long)]
+        session_id: String,
+    },
+    /// Clear waiting for input flag (called by UserPromptSubmit hook)
+    ClearWaiting {
+        #[arg(long)]
+        session_id: String,
+    },
 }
 
 fn get_state_path() -> Result<PathBuf> {
@@ -67,6 +77,8 @@ fn run_command(command: &Commands) -> Result<()> {
                 tmux_pane: tmux_pane.clone(),
                 tmux_session: tmux_session.clone(),
                 tmux_window: *tmux_window,
+                waiting_for_input: false,
+                waiting_since: None,
             });
             state.save().context("Failed to save state file")?;
             println!("✓ Tracked session {session_id}");
@@ -78,6 +90,32 @@ fn run_command(command: &Commands) -> Result<()> {
             if state.remove_session(session_id).is_some() {
                 state.save().context("Failed to save state file")?;
                 println!("✓ Untracked session {session_id}");
+            } else {
+                println!("⚠ Session {session_id} not found");
+            }
+            Ok(())
+        }
+        Commands::MarkWaiting { session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
+            if let Some(session) = state.sessions.get_mut(session_id) {
+                session.waiting_for_input = true;
+                session.waiting_since = Some(chrono::Utc::now().timestamp());
+                state.save().context("Failed to save state file")?;
+                println!("✓ Marked session {session_id} as waiting for input");
+            } else {
+                println!("⚠ Session {session_id} not found");
+            }
+            Ok(())
+        }
+        Commands::ClearWaiting { session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
+            if let Some(session) = state.sessions.get_mut(session_id) {
+                session.waiting_for_input = false;
+                session.waiting_since = None;
+                state.save().context("Failed to save state file")?;
+                println!("✓ Cleared waiting flag for session {session_id}");
             } else {
                 println!("⚠ Session {session_id} not found");
             }

@@ -16,6 +16,10 @@ pub struct SessionInfo {
     pub tmux_pane: Option<String>,      // e.g., "%1"
     pub tmux_session: Option<String>,   // e.g., "main"
     pub tmux_window: Option<u32>,       // window index
+    #[serde(default)]
+    pub waiting_for_input: bool,        // Set by PostToolUse hook when AskUserQuestion called
+    #[serde(default)]
+    pub waiting_since: Option<i64>,     // Timestamp when waiting started
 }
 
 #[derive(Debug, Serialize, Deserialize)]

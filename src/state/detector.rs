@@ -1,42 +1,26 @@
 use super::{SessionState, tracker::SessionInfo};
 use crate::data::process;
 
-pub fn detect_state(session_info: &SessionInfo, last_msg_type: Option<&str>, last_msg_age_secs: i64, file_mod_age_secs: i64) -> SessionState {
+pub fn detect_state(session_info: &SessionInfo) -> SessionState {
     // 1. Check if process exists
     if !process::process_exists(session_info.pid) {
         return SessionState::Dead;
     }
 
-    // 2. Check for idle timeout (30+ minutes)
-    if last_msg_age_secs > 1800 {
+    // 2. WaitingForInput: set by PostToolUse hook
+    if session_info.waiting_for_input {
+        return SessionState::WaitingForInput;
+    }
+
+    // 3. Check for idle timeout (30+ minutes since session start)
+    let now = chrono::Utc::now().timestamp();
+    let age_secs = now - session_info.started_at;
+    if age_secs > 1800 {
         return SessionState::Idle;
     }
 
-    // 3. If JSONL file was modified recently (<15s), Claude is likely generating
-    if file_mod_age_secs < 15 {
-        return SessionState::Working;
-    }
-
-    // 4. Determine state based on last message
-    match last_msg_type {
-        Some("needs_input") => {
-            // Claude is BLOCKED waiting for user input (AskUserQuestion, permissions, etc.)
-            SessionState::WaitingForInput
-        }
-        Some("user") => {
-            // User just sent message or tool result, Claude is processing
-            if last_msg_age_secs < 30 {
-                SessionState::Working
-            } else {
-                SessionState::Waiting // Slow response
-            }
-        }
-        Some("assistant") => {
-            // Claude responded, waiting for user
-            SessionState::Waiting
-        }
-        _ => SessionState::Waiting,
-    }
+    // 4. Default: Working (we can't distinguish Working vs Waiting without JSONL)
+    SessionState::Working
 }
 
 #[cfg(test)]
@@ -57,37 +41,42 @@ mod tests {
             tmux_pane: None,
             tmux_session: None,
             tmux_window: None,
+            waiting_for_input: false,
+            waiting_since: None,
         }
     }
 
     #[test]
     fn test_dead_process() {
         let session = mock_session();
-        let state = detect_state(&session, Some("user"), 10, 9999);
+        let state = detect_state(&session);
         assert_eq!(state, SessionState::Dead);
     }
 
     #[test]
-    fn test_recent_user_message_is_working() {
+    fn test_waiting_for_input_flag() {
         let mut session = mock_session();
         session.pid = std::process::id(); // Use current process as alive
-        let state = detect_state(&session, Some("user"), 3, 9999);
+        session.waiting_for_input = true;
+        let state = detect_state(&session);
+        assert_eq!(state, SessionState::WaitingForInput);
+    }
+
+    #[test]
+    fn test_default_is_working() {
+        let mut session = mock_session();
+        session.pid = std::process::id();
+        let state = detect_state(&session);
         assert_eq!(state, SessionState::Working);
     }
 
     #[test]
-    fn test_old_assistant_message_is_waiting() {
+    fn test_old_session_is_idle() {
         let mut session = mock_session();
         session.pid = std::process::id();
-        let state = detect_state(&session, Some("assistant"), 120, 9999);
-        assert_eq!(state, SessionState::Waiting);
-    }
-
-    #[test]
-    fn test_very_old_activity_is_idle() {
-        let mut session = mock_session();
-        session.pid = std::process::id();
-        let state = detect_state(&session, Some("assistant"), 2000, 9999);
+        // Set started_at to 31 minutes ago
+        session.started_at = Utc::now().timestamp() - 1860;
+        let state = detect_state(&session);
         assert_eq!(state, SessionState::Idle);
     }
 }

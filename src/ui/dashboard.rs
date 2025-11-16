@@ -11,16 +11,23 @@ use ratatui::{
     Terminal,
 };
 use std::io;
+use std::io::Write;
 use crate::app::App;
 use crate::state::SessionState;
 
 pub struct Dashboard {
     app: App,
+    log_file: std::fs::File,
 }
 
 impl Dashboard {
     pub fn new(app: App) -> Self {
-        Self { app }
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/cc-orchestra-debug.log")
+            .expect("Failed to open log file");
+        Self { app, log_file }
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -34,6 +41,7 @@ impl Dashboard {
             // Refresh data
             self.app.refresh()?;
 
+            let draw_start = std::time::Instant::now();
             terminal.draw(|f| {
                 // Create main layout with header, body, and footer
                 let chunks = Layout::default()
@@ -67,19 +75,17 @@ impl Dashboard {
                             SessionState::Dead => "❌ Dead",
                         };
 
-                        // Calculate age from last activity
-                        let age = if let Some(ref activity) = session.last_activity {
-                            let now = chrono::Utc::now().timestamp_millis();
-                            let secs = (now - activity.timestamp) / 1000;
+                        // Calculate session age (time since started)
+                        let age = {
+                            let now = chrono::Utc::now().timestamp();
+                            let secs = now - session.info.started_at;
                             if secs < 60 {
-                                format!("{}s ago", secs)
+                                format!("{}s", secs)
                             } else if secs < 3600 {
-                                format!("{}m ago", secs / 60)
+                                format!("{}m", secs / 60)
                             } else {
-                                format!("{}h ago", secs / 3600)
+                                format!("{}h", secs / 3600)
                             }
-                        } else {
-                            "unknown".to_string()
                         };
 
                         // Check if session is in tmux
@@ -113,7 +119,12 @@ impl Dashboard {
                 f.render_widget(footer, chunks[2]);
             })?;
 
-            if event::poll(std::time::Duration::from_millis(100))? {
+            let draw_time = draw_start.elapsed();
+            if draw_time.as_millis() > 100 {
+                let _ = writeln!(self.log_file, "[SLOW DRAW] terminal.draw() took {:?}", draw_time);
+            }
+
+            if event::poll(std::time::Duration::from_millis(10))? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
                         KeyCode::Char('q') => break,

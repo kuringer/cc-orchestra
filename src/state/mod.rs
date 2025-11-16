@@ -43,6 +43,8 @@ mod tests {
             tmux_pane: None,
             tmux_session: None,
             tmux_window: None,
+            waiting_for_input: false,
+            waiting_since: None,
         });
         state.save().unwrap();
 

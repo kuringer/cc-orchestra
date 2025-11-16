@@ -3,10 +3,12 @@ pub mod detector;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionState {
-    Working,          // 🟡 Claude is processing (user gave input, Stop not fired yet)
-    Waiting,          // ⏸️ Claude finished, waiting for user input
-    Idle,             // 💤 No activity 30+ min
-    Dead,             // ❌ Process not found
+    Working,            // 🟡 Claude is processing (user gave input, Stop not fired yet)
+    Waiting,            // ⏸️ Claude finished, waiting for user input
+    AskingQuestion,     // ❓ Using AskUserQuestion tool
+    AwaitingPermission, // 🔐 Waiting for permission prompt
+    Idle,               // 💤 No activity 30+ min
+    Dead,               // ❌ Process not found
 }
 
 #[cfg(test)]
@@ -44,6 +46,8 @@ mod tests {
             tmux_window: None,
             last_activity: 1234567890,
             user_input_at: 0,
+            asking_question_at: 0,
+            awaiting_permission_at: 0,
         });
         state.save().unwrap();
 

@@ -20,6 +20,10 @@ pub struct SessionInfo {
     pub last_activity: i64,             // Updated by Stop hook (Unix timestamp)
     #[serde(default)]
     pub user_input_at: i64,             // Updated by UserPromptSubmit hook (Unix timestamp)
+    #[serde(default)]
+    pub asking_question_at: i64,        // Updated by PostToolUse[AskUserQuestion] hook (Unix timestamp)
+    #[serde(default)]
+    pub awaiting_permission_at: i64,    // Updated by Notification[permission_prompt] hook (Unix timestamp)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

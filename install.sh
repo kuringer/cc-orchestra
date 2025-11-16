@@ -100,6 +100,40 @@ fi
 WRAPPER_EOF
 chmod +x ~/.local/bin/cc-orchestra-user-input
 
+# Create PostToolUse hook wrapper for AskUserQuestion
+cat > ~/.local/bin/cc-orchestra-asking-question << 'WRAPPER_EOF'
+#!/bin/bash
+# Read hook input JSON from stdin
+input=$(cat)
+
+# Extract session_id and tool_name from JSON
+session_id=$(echo "$input" | jq -r '.session_id // empty')
+tool_name=$(echo "$input" | jq -r '.tool_name // empty')
+
+# Only track if it's AskUserQuestion tool
+if [ -n "$session_id" ] && [ "$tool_name" = "AskUserQuestion" ]; then
+    exec cc-orchestra update-asking-question --session-id "$session_id"
+fi
+WRAPPER_EOF
+chmod +x ~/.local/bin/cc-orchestra-asking-question
+
+# Create Notification hook wrapper for permission prompts
+cat > ~/.local/bin/cc-orchestra-permission-prompt << 'WRAPPER_EOF'
+#!/bin/bash
+# Read hook input JSON from stdin
+input=$(cat)
+
+# Extract session_id and notification_type from JSON
+session_id=$(echo "$input" | jq -r '.session_id // empty')
+notification_type=$(echo "$input" | jq -r '.notification_type // empty')
+
+# Only track if it's a permission prompt
+if [ -n "$session_id" ] && [ "$notification_type" = "permission_prompt" ]; then
+    exec cc-orchestra update-awaiting-permission --session-id "$session_id"
+fi
+WRAPPER_EOF
+chmod +x ~/.local/bin/cc-orchestra-permission-prompt
+
 echo "✓ Binary and hook wrappers installed to ~/.local/bin/"
 
 # Check if ~/.local/bin is in PATH
@@ -147,6 +181,20 @@ if [ -f "$SETTINGS_FILE" ]; then
         "type": "command",
         "command": "cc-orchestra-user-input"
       }]
+    }],
+    "PostToolUse": [{
+      "matcher": "AskUserQuestion",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-asking-question"
+      }]
+    }],
+    "Notification": [{
+      "matcher": "permission_prompt",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-permission-prompt"
+      }]
     }]
   }
 '
@@ -181,6 +229,20 @@ else
       "hooks": [{
         "type": "command",
         "command": "cc-orchestra-user-input"
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "AskUserQuestion",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-asking-question"
+      }]
+    }],
+    "Notification": [{
+      "matcher": "permission_prompt",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-permission-prompt"
       }]
     }]
   }

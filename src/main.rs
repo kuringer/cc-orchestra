@@ -48,6 +48,16 @@ enum Commands {
         #[arg(long)]
         session_id: String,
     },
+    /// Update asking question timestamp (called by PostToolUse[AskUserQuestion] hook)
+    UpdateAskingQuestion {
+        #[arg(long)]
+        session_id: String,
+    },
+    /// Update awaiting permission timestamp (called by Notification[permission_prompt] hook)
+    UpdateAwaitingPermission {
+        #[arg(long)]
+        session_id: String,
+    },
 }
 
 fn get_state_path() -> Result<PathBuf> {
@@ -80,6 +90,8 @@ fn run_command(command: &Commands) -> Result<()> {
                 tmux_window: *tmux_window,
                 last_activity: now,  // Initialize to started_at
                 user_input_at: 0,    // Initialize to 0 (no user input yet)
+                asking_question_at: 0,  // Initialize to 0 (no question asked)
+                awaiting_permission_at: 0,  // Initialize to 0 (no permission prompt)
             });
             state.save().context("Failed to save state file")?;
             println!("✓ Tracked session {session_id}");
@@ -115,6 +127,30 @@ fn run_command(command: &Commands) -> Result<()> {
                 session.user_input_at = chrono::Utc::now().timestamp();
                 state.save().context("Failed to save state file")?;
                 println!("✓ Updated user input for session {session_id}");
+            } else {
+                println!("⚠ Session {session_id} not found");
+            }
+            Ok(())
+        }
+        Commands::UpdateAskingQuestion { session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
+            if let Some(session) = state.sessions.get_mut(session_id) {
+                session.asking_question_at = chrono::Utc::now().timestamp();
+                state.save().context("Failed to save state file")?;
+                println!("✓ Updated asking question for session {session_id}");
+            } else {
+                println!("⚠ Session {session_id} not found");
+            }
+            Ok(())
+        }
+        Commands::UpdateAwaitingPermission { session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
+            if let Some(session) = state.sessions.get_mut(session_id) {
+                session.awaiting_permission_at = chrono::Utc::now().timestamp();
+                state.save().context("Failed to save state file")?;
+                println!("✓ Updated awaiting permission for session {session_id}");
             } else {
                 println!("⚠ Session {session_id} not found");
             }

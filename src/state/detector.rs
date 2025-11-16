@@ -20,13 +20,27 @@ pub fn detect_state(session_info: &SessionInfo) -> SessionState {
         return SessionState::Idle;
     }
 
-    // 3. Check if Claude is working vs waiting
+    // 3. Check if Claude is asking a question
+    // If asking_question_at is most recent, Claude is waiting for answer
+    if session_info.asking_question_at > session_info.last_activity
+        && session_info.asking_question_at > session_info.user_input_at {
+        return SessionState::AskingQuestion;
+    }
+
+    // 4. Check if Claude is waiting for permission
+    // If awaiting_permission_at is most recent, Claude is waiting for permission
+    if session_info.awaiting_permission_at > session_info.last_activity
+        && session_info.awaiting_permission_at > session_info.user_input_at {
+        return SessionState::AwaitingPermission;
+    }
+
+    // 5. Check if Claude is working vs waiting
     // If user gave input AFTER Claude's last Stop, Claude is working
     if session_info.user_input_at > session_info.last_activity {
         return SessionState::Working;
     }
 
-    // 4. Default: Waiting (Claude finished, waiting for user)
+    // 6. Default: Waiting (Claude finished, waiting for user)
     SessionState::Waiting
 }
 
@@ -51,6 +65,8 @@ mod tests {
             tmux_window: None,
             last_activity: now,
             user_input_at: 0,  // Default: no user input yet
+            asking_question_at: 0,  // Default: no question asked
+            awaiting_permission_at: 0,  // Default: no permission prompt
         }
     }
 

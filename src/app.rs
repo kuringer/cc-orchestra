@@ -76,18 +76,22 @@ impl App {
 
         // Sort by priority first (Working at top), then by last_activity (newest first)
         sessions.sort_by(|a, b| {
-            // Priority: Working=0, Waiting=1, Idle=2, Dead=3
+            // Priority: Working=0, AskingQuestion=1, AwaitingPermission=2, Waiting=3, Idle=4, Dead=5
             let priority_a = match a.state {
                 SessionState::Working => 0,
-                SessionState::Waiting => 1,
-                SessionState::Idle => 2,
-                SessionState::Dead => 3,
+                SessionState::AskingQuestion => 1,
+                SessionState::AwaitingPermission => 2,
+                SessionState::Waiting => 3,
+                SessionState::Idle => 4,
+                SessionState::Dead => 5,
             };
             let priority_b = match b.state {
                 SessionState::Working => 0,
-                SessionState::Waiting => 1,
-                SessionState::Idle => 2,
-                SessionState::Dead => 3,
+                SessionState::AskingQuestion => 1,
+                SessionState::AwaitingPermission => 2,
+                SessionState::Waiting => 3,
+                SessionState::Idle => 4,
+                SessionState::Dead => 5,
             };
 
             // First compare by priority

@@ -72,6 +72,8 @@ impl Dashboard {
                     .map(|(i, session)| {
                         let status_icon = match session.state {
                             SessionState::Working => "🟡 Working",
+                            SessionState::AskingQuestion => "❓ Asking",
+                            SessionState::AwaitingPermission => "🔐 Permission",
                             SessionState::Waiting => "⏸️ Waiting",
                             SessionState::Idle => "💤 Idle",
                             SessionState::Dead => "❌ Dead",

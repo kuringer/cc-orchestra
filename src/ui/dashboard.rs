@@ -76,7 +76,13 @@ impl Dashboard {
                         // Calculate last activity age
                         let last_active = {
                             let now = chrono::Utc::now().timestamp();
-                            let secs = now - session.info.last_activity;
+                            // Fallback: if last_activity is 0 (old sessions), use started_at
+                            let last_activity = if session.info.last_activity == 0 {
+                                session.info.started_at
+                            } else {
+                                session.info.last_activity
+                            };
+                            let secs = now - last_activity;
                             if secs < 5 {
                                 "now".to_string()
                             } else if secs < 60 {

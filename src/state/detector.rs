@@ -9,7 +9,13 @@ pub fn detect_state(session_info: &SessionInfo) -> SessionState {
 
     // 2. Check for idle timeout (30+ minutes since last activity)
     let now = chrono::Utc::now().timestamp();
-    let inactive_secs = now - session_info.last_activity;
+    // Fallback: if last_activity is 0 (old sessions), use started_at
+    let last_activity = if session_info.last_activity == 0 {
+        session_info.started_at
+    } else {
+        session_info.last_activity
+    };
+    let inactive_secs = now - last_activity;
     if inactive_secs > 1800 {
         return SessionState::Idle;
     }

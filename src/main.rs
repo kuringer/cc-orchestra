@@ -125,6 +125,9 @@ fn run_command(command: &Commands) -> Result<()> {
                 .context("Failed to load state file")?;
             if let Some(session) = state.sessions.get_mut(session_id) {
                 session.user_input_at = chrono::Utc::now().timestamp();
+                // Clear asking/permission states when user provides input
+                session.asking_question_at = 0;
+                session.awaiting_permission_at = 0;
                 state.save().context("Failed to save state file")?;
                 println!("✓ Updated user input for session {session_id}");
             } else {

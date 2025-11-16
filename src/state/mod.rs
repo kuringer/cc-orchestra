@@ -3,9 +3,7 @@ pub mod detector;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionState {
-    Working,          // 🟢 Actively generating/running
-    WaitingForInput,  // ⏸️ NEEDS INPUT - blocked on user response
-    Waiting,          // ⏸️ Waiting for user input (general)
+    Active,           // 🟢 Process exists and active
     Idle,             // 💤 No activity 30+ min
     Dead,             // ❌ Process not found
 }
@@ -43,8 +41,7 @@ mod tests {
             tmux_pane: None,
             tmux_session: None,
             tmux_window: None,
-            waiting_for_input: false,
-            waiting_since: None,
+            last_activity: 1234567890,
         });
         state.save().unwrap();
 

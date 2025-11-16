@@ -38,13 +38,8 @@ enum Commands {
         #[arg(long)]
         session_id: String,
     },
-    /// Mark session as waiting for input (called by PostToolUse hook)
-    MarkWaiting {
-        #[arg(long)]
-        session_id: String,
-    },
-    /// Clear waiting for input flag (called by UserPromptSubmit hook)
-    ClearWaiting {
+    /// Update last activity timestamp (called by Stop hook)
+    UpdateActivity {
         #[arg(long)]
         session_id: String,
     },
@@ -66,19 +61,19 @@ fn run_command(command: &Commands) -> Result<()> {
                 .to_string();
             let tty = std::env::var("TTY").unwrap_or_else(|_| "unknown".to_string());
 
+            let now = chrono::Utc::now().timestamp();
             state.add_session(session_id.clone(), SessionInfo {
                 pid: *pid,
                 tty,
                 cwd,
-                started_at: chrono::Utc::now().timestamp(),
+                started_at: now,
                 zellij_session: None, // TODO: detect Zellij
                 zellij_tab: None,
                 zellij_pane: None,
                 tmux_pane: tmux_pane.clone(),
                 tmux_session: tmux_session.clone(),
                 tmux_window: *tmux_window,
-                waiting_for_input: false,
-                waiting_since: None,
+                last_activity: now,  // Initialize to started_at
             });
             state.save().context("Failed to save state file")?;
             println!("✓ Tracked session {session_id}");
@@ -95,27 +90,13 @@ fn run_command(command: &Commands) -> Result<()> {
             }
             Ok(())
         }
-        Commands::MarkWaiting { session_id } => {
+        Commands::UpdateActivity { session_id } => {
             let mut state = StateFile::load(get_state_path()?)
                 .context("Failed to load state file")?;
             if let Some(session) = state.sessions.get_mut(session_id) {
-                session.waiting_for_input = true;
-                session.waiting_since = Some(chrono::Utc::now().timestamp());
+                session.last_activity = chrono::Utc::now().timestamp();
                 state.save().context("Failed to save state file")?;
-                println!("✓ Marked session {session_id} as waiting for input");
-            } else {
-                println!("⚠ Session {session_id} not found");
-            }
-            Ok(())
-        }
-        Commands::ClearWaiting { session_id } => {
-            let mut state = StateFile::load(get_state_path()?)
-                .context("Failed to load state file")?;
-            if let Some(session) = state.sessions.get_mut(session_id) {
-                session.waiting_for_input = false;
-                session.waiting_since = None;
-                state.save().context("Failed to save state file")?;
-                println!("✓ Cleared waiting flag for session {session_id}");
+                println!("✓ Updated activity for session {session_id}");
             } else {
                 println!("⚠ Session {session_id} not found");
             }

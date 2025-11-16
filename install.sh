@@ -70,25 +70,8 @@ exec cc-orchestra untrack-session --session-id "$session_id"
 WRAPPER_EOF
 chmod +x ~/.local/bin/cc-orchestra-session-end
 
-# Create PostToolUse hook wrapper
-cat > ~/.local/bin/cc-orchestra-post-tool << 'WRAPPER_EOF'
-#!/bin/bash
-# Read hook input JSON from stdin
-input=$(cat)
-
-# Extract session_id and tool_name from JSON
-session_id=$(echo "$input" | jq -r '.session_id // empty')
-tool_name=$(echo "$input" | jq -r '.tool_name // empty')
-
-# Mark as waiting only for AskUserQuestion
-if [ "$tool_name" = "AskUserQuestion" ]; then
-    exec cc-orchestra mark-waiting --session-id "$session_id"
-fi
-WRAPPER_EOF
-chmod +x ~/.local/bin/cc-orchestra-post-tool
-
-# Create UserPromptSubmit hook wrapper
-cat > ~/.local/bin/cc-orchestra-user-prompt << 'WRAPPER_EOF'
+# Create Stop hook wrapper
+cat > ~/.local/bin/cc-orchestra-stop << 'WRAPPER_EOF'
 #!/bin/bash
 # Read hook input JSON from stdin
 input=$(cat)
@@ -97,10 +80,10 @@ input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // empty')
 
 if [ -n "$session_id" ]; then
-    exec cc-orchestra clear-waiting --session-id "$session_id"
+    exec cc-orchestra update-activity --session-id "$session_id"
 fi
 WRAPPER_EOF
-chmod +x ~/.local/bin/cc-orchestra-user-prompt
+chmod +x ~/.local/bin/cc-orchestra-stop
 
 echo "✓ Binary and hook wrappers installed to ~/.local/bin/"
 
@@ -136,18 +119,11 @@ if [ -f "$SETTINGS_FILE" ]; then
         "command": "cc-orchestra-session-end"
       }]
     }],
-    "PostToolUse": [{
+    "Stop": [{
       "matcher": "",
       "hooks": [{
         "type": "command",
-        "command": "cc-orchestra-post-tool"
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "cc-orchestra-user-prompt"
+        "command": "cc-orchestra-stop"
       }]
     }]
   }
@@ -171,18 +147,11 @@ else
         "command": "cc-orchestra-session-end"
       }]
     }],
-    "PostToolUse": [{
+    "Stop": [{
       "matcher": "",
       "hooks": [{
         "type": "command",
-        "command": "cc-orchestra-post-tool"
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "cc-orchestra-user-prompt"
+        "command": "cc-orchestra-stop"
       }]
     }]
   }

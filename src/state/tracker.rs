@@ -17,9 +17,7 @@ pub struct SessionInfo {
     pub tmux_session: Option<String>,   // e.g., "main"
     pub tmux_window: Option<u32>,       // window index
     #[serde(default)]
-    pub waiting_for_input: bool,        // Set by PostToolUse hook when AskUserQuestion called
-    #[serde(default)]
-    pub waiting_since: Option<i64>,     // Timestamp when waiting started
+    pub last_activity: i64,             // Updated by Stop hook (Unix timestamp)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -76,29 +76,25 @@ impl App {
             });
         }
 
-        // Sort by priority first (WaitingForInput at top), then by started_at (newest first)
+        // Sort by priority first (Active at top), then by last_activity (newest first)
         sessions.sort_by(|a, b| {
-            // Priority: WaitingForInput=0, Working=1, Waiting=2, Idle=3
+            // Priority: Active=0, Idle=1, Dead=2
             let priority_a = match a.state {
-                SessionState::WaitingForInput => 0,
-                SessionState::Working => 1,
-                SessionState::Waiting => 2,
-                SessionState::Idle => 3,
-                SessionState::Dead => 4,
+                SessionState::Active => 0,
+                SessionState::Idle => 1,
+                SessionState::Dead => 2,
             };
             let priority_b = match b.state {
-                SessionState::WaitingForInput => 0,
-                SessionState::Working => 1,
-                SessionState::Waiting => 2,
-                SessionState::Idle => 3,
-                SessionState::Dead => 4,
+                SessionState::Active => 0,
+                SessionState::Idle => 1,
+                SessionState::Dead => 2,
             };
 
             // First compare by priority
             match priority_a.cmp(&priority_b) {
                 std::cmp::Ordering::Equal => {
-                    // Same priority - sort by started_at (newest first)
-                    b.info.started_at.cmp(&a.info.started_at)
+                    // Same priority - sort by last_activity (newest first)
+                    b.info.last_activity.cmp(&a.info.last_activity)
                 }
                 other => other,
             }
@@ -115,22 +111,6 @@ impl App {
             }
         });
 
-        // Play sound alert for new WaitingForInput sessions
-        for session in &sessions {
-            if session.state == SessionState::WaitingForInput {
-                // Only alert if we haven't alerted this session before
-                if !self.alerted_sessions.contains(&session.id) {
-                    // Play distinctive sound (macOS Sosumi)
-                    let _ = std::process::Command::new("afplay")
-                        .arg("/System/Library/Sounds/Sosumi.aiff")
-                        .spawn();
-                    self.alerted_sessions.insert(session.id.clone());
-                }
-            } else {
-                // Remove from alerted set if state changed (so we can alert again if it goes back to WaitingForInput)
-                self.alerted_sessions.remove(&session.id);
-            }
-        }
 
         // Restore selection by session ID, or default to 0
         if let Some(id) = selected_id {

@@ -68,23 +68,23 @@ impl Dashboard {
                     .enumerate()
                     .map(|(i, session)| {
                         let status_icon = match session.state {
-                            SessionState::Working => "🟢 Working",
-                            SessionState::WaitingForInput => "⏸️ NEEDS INPUT",
-                            SessionState::Waiting => "⏸️ Waiting",
+                            SessionState::Active => "🟢 Active",
                             SessionState::Idle => "💤 Idle",
                             SessionState::Dead => "❌ Dead",
                         };
 
-                        // Calculate session age (time since started)
-                        let age = {
+                        // Calculate last activity age
+                        let last_active = {
                             let now = chrono::Utc::now().timestamp();
-                            let secs = now - session.info.started_at;
-                            if secs < 60 {
-                                format!("{}s", secs)
+                            let secs = now - session.info.last_activity;
+                            if secs < 5 {
+                                "now".to_string()
+                            } else if secs < 60 {
+                                format!("{}s ago", secs)
                             } else if secs < 3600 {
-                                format!("{}m", secs / 60)
+                                format!("{}m ago", secs / 60)
                             } else {
-                                format!("{}h", secs / 3600)
+                                format!("{}h ago", secs / 3600)
                             }
                         };
 
@@ -102,7 +102,7 @@ impl Dashboard {
                             session.project_name,
                             status_icon,
                             session.info.pid,
-                            age
+                            last_active
                         );
 
                         ListItem::new(text)

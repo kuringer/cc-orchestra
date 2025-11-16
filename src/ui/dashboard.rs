@@ -11,23 +11,20 @@ use ratatui::{
     Terminal,
 };
 use std::io;
-use std::io::Write;
 use crate::app::App;
 use crate::state::SessionState;
 
 pub struct Dashboard {
     app: App,
-    log_file: std::fs::File,
+    last_render: std::time::Instant,
 }
 
 impl Dashboard {
     pub fn new(app: App) -> Self {
-        let log_file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("/tmp/cc-orchestra-debug.log")
-            .expect("Failed to open log file");
-        Self { app, log_file }
+        Self {
+            app,
+            last_render: std::time::Instant::now(),
+        }
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -38,11 +35,17 @@ impl Dashboard {
         let mut terminal = Terminal::new(backend)?;
 
         loop {
-            // Refresh data
-            self.app.refresh()?;
+            // Refresh data and check if anything changed
+            let data_changed = self.app.refresh()?;
 
-            let draw_start = std::time::Instant::now();
-            terminal.draw(|f| {
+            // Determine if we need to render:
+            // - Data changed (sessions updated)
+            // - 1 second elapsed (for timestamp update)
+            let should_render = data_changed || self.last_render.elapsed() >= std::time::Duration::from_secs(1);
+
+            if should_render {
+                self.last_render = std::time::Instant::now();
+                terminal.draw(|f| {
                 // Create main layout with header, body, and footer
                 let chunks = Layout::default()
                     .direction(ratatui::layout::Direction::Vertical)
@@ -68,7 +71,8 @@ impl Dashboard {
                     .enumerate()
                     .map(|(i, session)| {
                         let status_icon = match session.state {
-                            SessionState::Active => "🟢 Active",
+                            SessionState::Working => "🟡 Working",
+                            SessionState::Waiting => "⏸️ Waiting",
                             SessionState::Idle => "💤 Idle",
                             SessionState::Dead => "❌ Dead",
                         };
@@ -123,20 +127,24 @@ impl Dashboard {
                 let footer = Paragraph::new("[↑↓/jk] Navigate  [Enter] Jump  [r] Refresh  [q] Quit")
                     .block(Block::default().borders(Borders::ALL));
                 f.render_widget(footer, chunks[2]);
-            })?;
-
-            let draw_time = draw_start.elapsed();
-            if draw_time.as_millis() > 100 {
-                let _ = writeln!(self.log_file, "[SLOW DRAW] terminal.draw() took {:?}", draw_time);
+                })?;
             }
 
-            if event::poll(std::time::Duration::from_millis(10))? {
+            if event::poll(std::time::Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
                         KeyCode::Char('q') => break,
-                        KeyCode::Down | KeyCode::Char('j') => self.app.select_next(),
-                        KeyCode::Up | KeyCode::Char('k') => self.app.select_previous(),
-                        KeyCode::Char('r') => { /* Force refresh - happens at top of loop */ }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            self.app.select_next();
+                            self.last_render = std::time::Instant::now() - std::time::Duration::from_secs(2); // Force render
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            self.app.select_previous();
+                            self.last_render = std::time::Instant::now() - std::time::Duration::from_secs(2); // Force render
+                        }
+                        KeyCode::Char('r') => {
+                            self.last_render = std::time::Instant::now() - std::time::Duration::from_secs(2); // Force render
+                        }
                         KeyCode::Enter => {
                             // Focus selected session's tmux pane (works from outside tmux)
                             if let Some(session) = self.app.sessions().get(self.app.selected()) {

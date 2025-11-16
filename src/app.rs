@@ -15,7 +15,7 @@ pub struct App {
     sessions: Vec<Session>,
     selected: usize,
     alerted_sessions: std::collections::HashSet<String>, // Track which sessions have been alerted
-    refresh_count: u32, // Counter for periodic logging
+    last_state_reload: std::time::Instant, // Track when state file was last reloaded
 }
 
 impl App {
@@ -30,24 +30,22 @@ impl App {
             sessions: Vec::new(),
             selected: 0,
             alerted_sessions: std::collections::HashSet::new(),
-            refresh_count: 0,
+            last_state_reload: std::time::Instant::now(),
         })
     }
 
-    pub fn refresh(&mut self) -> Result<()> {
-        let start_time = std::time::Instant::now();
-        self.refresh_count += 1;
-        let should_log = self.refresh_count % 100 == 0; // Log every ~1 second
-
+    pub fn refresh(&mut self) -> Result<bool> {
         // Save currently selected session ID to restore after refresh
         let selected_id = self.sessions.get(self.selected).map(|s| s.id.clone());
 
-        // Reload state file only every 100 refreshes (~1 second) to reduce I/O
-        if self.refresh_count % 100 == 0 {
+        // Track if anything changed that requires re-render
+        let mut changed = false;
+
+        // Reload state file only every 1 second to reduce I/O
+        if self.last_state_reload.elapsed() >= std::time::Duration::from_secs(1) {
             self.state_file = StateFile::load(self.state_file_path.clone())?;
-            if should_log {
-                eprintln!("[TIMING] State file load: {:?}", start_time.elapsed());
-            }
+            self.last_state_reload = std::time::Instant::now();
+            changed = true;
         }
 
         let mut sessions = Vec::new();
@@ -76,18 +74,20 @@ impl App {
             });
         }
 
-        // Sort by priority first (Active at top), then by last_activity (newest first)
+        // Sort by priority first (Working at top), then by last_activity (newest first)
         sessions.sort_by(|a, b| {
-            // Priority: Active=0, Idle=1, Dead=2
+            // Priority: Working=0, Waiting=1, Idle=2, Dead=3
             let priority_a = match a.state {
-                SessionState::Active => 0,
-                SessionState::Idle => 1,
-                SessionState::Dead => 2,
+                SessionState::Working => 0,
+                SessionState::Waiting => 1,
+                SessionState::Idle => 2,
+                SessionState::Dead => 3,
             };
             let priority_b = match b.state {
-                SessionState::Active => 0,
-                SessionState::Idle => 1,
-                SessionState::Dead => 2,
+                SessionState::Working => 0,
+                SessionState::Waiting => 1,
+                SessionState::Idle => 2,
+                SessionState::Dead => 3,
             };
 
             // First compare by priority
@@ -119,31 +119,20 @@ impl App {
             self.selected = 0;
         }
 
-        // Detect state changes for debugging - log to file
-        let log_path = std::path::Path::new("/tmp/cc-orchestra-debug.log");
-        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-            use std::io::Write;
-            for session in &sessions {
-                if let Some(old_session) = self.sessions.iter().find(|s| s.id == session.id) {
-                    if old_session.state != session.state {
-                        let _ = writeln!(log_file, "[STATE CHANGE] {} {:?} -> {:?} (detected after {:?})",
-                            session.project_name,
-                            old_session.state,
-                            session.state,
-                            start_time.elapsed()
-                        );
-                    }
+        // Check if sessions changed (different count or different states)
+        if self.sessions.len() != sessions.len() {
+            changed = true;
+        } else {
+            for (old, new) in self.sessions.iter().zip(sessions.iter()) {
+                if old.id != new.id || old.state != new.state {
+                    changed = true;
+                    break;
                 }
-            }
-
-            if should_log {
-                let _ = writeln!(log_file, "[TIMING] Total refresh: {:?}", start_time.elapsed());
-                let _ = writeln!(log_file, "---");
             }
         }
 
         self.sessions = sessions;
-        Ok(())
+        Ok(changed)
     }
 
     pub fn sessions(&self) -> &[Session] {

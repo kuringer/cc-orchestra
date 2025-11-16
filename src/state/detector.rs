@@ -20,8 +20,14 @@ pub fn detect_state(session_info: &SessionInfo) -> SessionState {
         return SessionState::Idle;
     }
 
-    // 3. Default: Active
-    SessionState::Active
+    // 3. Check if Claude is working vs waiting
+    // If user gave input AFTER Claude's last Stop, Claude is working
+    if session_info.user_input_at > session_info.last_activity {
+        return SessionState::Working;
+    }
+
+    // 4. Default: Waiting (Claude finished, waiting for user)
+    SessionState::Waiting
 }
 
 #[cfg(test)]
@@ -31,18 +37,20 @@ mod tests {
     use chrono::Utc;
 
     fn mock_session() -> SessionInfo {
+        let now = Utc::now().timestamp();
         SessionInfo {
             pid: 99999,
             tty: "s000".to_string(),
             cwd: "/tmp".to_string(),
-            started_at: Utc::now().timestamp(),
+            started_at: now,
             zellij_session: None,
             zellij_tab: None,
             zellij_pane: None,
             tmux_pane: None,
             tmux_session: None,
             tmux_window: None,
-            last_activity: Utc::now().timestamp(),
+            last_activity: now,
+            user_input_at: 0,  // Default: no user input yet
         }
     }
 
@@ -54,11 +62,11 @@ mod tests {
     }
 
     #[test]
-    fn test_default_is_active() {
+    fn test_default_is_waiting() {
         let mut session = mock_session();
         session.pid = std::process::id();
         let state = detect_state(&session);
-        assert_eq!(state, SessionState::Active);
+        assert_eq!(state, SessionState::Waiting);
     }
 
     #[test]
@@ -69,5 +77,16 @@ mod tests {
         session.last_activity = Utc::now().timestamp() - 1860;
         let state = detect_state(&session);
         assert_eq!(state, SessionState::Idle);
+    }
+
+    #[test]
+    fn test_working_when_user_input_after_stop() {
+        let mut session = mock_session();
+        session.pid = std::process::id();
+        let now = Utc::now().timestamp();
+        session.last_activity = now - 10;  // Claude finished 10 seconds ago
+        session.user_input_at = now - 5;   // User gave input 5 seconds ago
+        let state = detect_state(&session);
+        assert_eq!(state, SessionState::Working);
     }
 }

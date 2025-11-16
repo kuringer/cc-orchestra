@@ -18,6 +18,8 @@ pub struct SessionInfo {
     pub tmux_window: Option<u32>,       // window index
     #[serde(default)]
     pub last_activity: i64,             // Updated by Stop hook (Unix timestamp)
+    #[serde(default)]
+    pub user_input_at: i64,             // Updated by UserPromptSubmit hook (Unix timestamp)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

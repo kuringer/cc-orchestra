@@ -43,6 +43,11 @@ enum Commands {
         #[arg(long)]
         session_id: String,
     },
+    /// Update user input timestamp (called by UserPromptSubmit hook)
+    UpdateUserInput {
+        #[arg(long)]
+        session_id: String,
+    },
 }
 
 fn get_state_path() -> Result<PathBuf> {
@@ -74,6 +79,7 @@ fn run_command(command: &Commands) -> Result<()> {
                 tmux_session: tmux_session.clone(),
                 tmux_window: *tmux_window,
                 last_activity: now,  // Initialize to started_at
+                user_input_at: 0,    // Initialize to 0 (no user input yet)
             });
             state.save().context("Failed to save state file")?;
             println!("✓ Tracked session {session_id}");
@@ -97,6 +103,18 @@ fn run_command(command: &Commands) -> Result<()> {
                 session.last_activity = chrono::Utc::now().timestamp();
                 state.save().context("Failed to save state file")?;
                 println!("✓ Updated activity for session {session_id}");
+            } else {
+                println!("⚠ Session {session_id} not found");
+            }
+            Ok(())
+        }
+        Commands::UpdateUserInput { session_id } => {
+            let mut state = StateFile::load(get_state_path()?)
+                .context("Failed to load state file")?;
+            if let Some(session) = state.sessions.get_mut(session_id) {
+                session.user_input_at = chrono::Utc::now().timestamp();
+                state.save().context("Failed to save state file")?;
+                println!("✓ Updated user input for session {session_id}");
             } else {
                 println!("⚠ Session {session_id} not found");
             }

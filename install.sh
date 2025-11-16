@@ -85,6 +85,21 @@ fi
 WRAPPER_EOF
 chmod +x ~/.local/bin/cc-orchestra-stop
 
+# Create UserPromptSubmit hook wrapper
+cat > ~/.local/bin/cc-orchestra-user-input << 'WRAPPER_EOF'
+#!/bin/bash
+# Read hook input JSON from stdin
+input=$(cat)
+
+# Extract session_id from JSON
+session_id=$(echo "$input" | jq -r '.session_id // empty')
+
+if [ -n "$session_id" ]; then
+    exec cc-orchestra update-user-input --session-id "$session_id"
+fi
+WRAPPER_EOF
+chmod +x ~/.local/bin/cc-orchestra-user-input
+
 echo "✓ Binary and hook wrappers installed to ~/.local/bin/"
 
 # Check if ~/.local/bin is in PATH
@@ -125,6 +140,13 @@ if [ -f "$SETTINGS_FILE" ]; then
         "type": "command",
         "command": "cc-orchestra-stop"
       }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-user-input"
+      }]
     }]
   }
 '
@@ -152,6 +174,13 @@ else
       "hooks": [{
         "type": "command",
         "command": "cc-orchestra-stop"
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cc-orchestra-user-input"
       }]
     }]
   }
